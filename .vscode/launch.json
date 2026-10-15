@@ -1,0 +1,19 @@
+{
+	// Отладка GDScript через godot-tools.
+	// Важно: сначала открыть проект в редакторе Godot (там живёт LSP/DAP),
+	// затем нажать F5 здесь. Если наоборот — кнопка Retry в правом нижнем углу.
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Debug Godot project",
+			"type": "godot",
+			"request": "launch"
+		},
+		{
+			"name": "Debug current scene",
+			"type": "godot",
+			"request": "launch",
+			"scene": "${file}"
+		}
+	]
+}

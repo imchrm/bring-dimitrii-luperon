@@ -1,0 +1,79 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/luperon.gd" id="1_lup"]
+[ext_resource type="PackedScene" path="res://scenes/actors/dinghy.tscn" id="2_dinghy"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dock"]
+size = Vector2(80, 260)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_boat"]
+size = Vector2(70, 30)
+
+[node name="Luperon" type="Node2D"]
+script = ExtResource("1_lup")
+
+[node name="Water" type="Polygon2D" parent="."]
+color = Color(0.11, 0.42, 0.52, 1)
+polygon = PackedVector2Array(-2000, -1500, 2000, -1500, 2000, 1500, -2000, 1500)
+
+[node name="Shore" type="StaticBody2D" parent="."]
+
+[node name="ShoreVisual" type="Polygon2D" parent="Shore"]
+color = Color(0.82, 0.74, 0.52, 1)
+polygon = PackedVector2Array(-2000, -1500, 2000, -1500, 2000, -900, 600, -820, -400, -760, -2000, -860)
+
+[node name="ShoreCollision" type="CollisionPolygon2D" parent="Shore"]
+polygon = PackedVector2Array(-2000, -1500, 2000, -1500, 2000, -900, 600, -820, -400, -760, -2000, -860)
+
+[node name="Dock" type="StaticBody2D" parent="."]
+position = Vector2(200, -680)
+
+[node name="DockVisual" type="Polygon2D" parent="Dock"]
+color = Color(0.45, 0.33, 0.22, 1)
+polygon = PackedVector2Array(-40, -130, 40, -130, 40, 130, -40, 130)
+
+[node name="DockCollision" type="CollisionShape2D" parent="Dock"]
+shape = SubResource("RectangleShape2D_dock")
+
+[node name="MooredBoatA" type="StaticBody2D" parent="."]
+position = Vector2(-420, -120)
+rotation = 0.35
+
+[node name="MooredBoatAVisual" type="Polygon2D" parent="MooredBoatA"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(40, 0, 12, -15, -35, -13, -35, 13, 12, 15)
+
+[node name="MooredBoatACollision" type="CollisionShape2D" parent="MooredBoatA"]
+shape = SubResource("RectangleShape2D_boat")
+
+[node name="MooredBoatB" type="StaticBody2D" parent="."]
+position = Vector2(520, -40)
+rotation = -0.5
+
+[node name="MooredBoatBVisual" type="Polygon2D" parent="MooredBoatB"]
+color = Color(0.3, 0.32, 0.36, 1)
+polygon = PackedVector2Array(40, 0, 12, -15, -35, -13, -35, 13, 12, 15)
+
+[node name="MooredBoatBCollision" type="CollisionShape2D" parent="MooredBoatB"]
+shape = SubResource("RectangleShape2D_boat")
+
+[node name="Dinghy" parent="." instance=ExtResource("2_dinghy")]
+position = Vector2(0, 200)
+
+[node name="FollowCamera" type="Camera2D" parent="Dinghy"]
+position_smoothing_enabled = true
+
+[node name="DinghyToTow" parent="." instance=ExtResource("2_dinghy")]
+modulate = Color(0.95, 0.55, 0.3, 1)
+position = Vector2(180, 80)
+rotation = 0.6
+has_engine = false
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Hint" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 520.0
+offset_bottom = 40.0
+text = "WASD / стрелки — управление динги. Оранжевая лодка без мотора — будущая цель буксировки."

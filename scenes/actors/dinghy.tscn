@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/dinghy.gd" id="1_dinghy"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hull"]
+size = Vector2(64, 28)
+
+[node name="Dinghy" type="RigidBody2D"]
+mass = 2.0
+gravity_scale = 0.0
+linear_damp = 2.0
+angular_damp = 6.0
+script = ExtResource("1_dinghy")
+
+[node name="Hull" type="Polygon2D" parent="."]
+color = Color(0.18, 0.2, 0.24, 1)
+polygon = PackedVector2Array(34, 0, 10, -14, -30, -12, -30, 12, 10, 14)
+
+[node name="Bow" type="Polygon2D" parent="."]
+color = Color(0.85, 0.78, 0.5, 1)
+polygon = PackedVector2Array(34, 0, 16, -8, 16, 8)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_hull")
+
+[node name="TowPoint" type="Marker2D" parent="."]
+position = Vector2(-32, 0)

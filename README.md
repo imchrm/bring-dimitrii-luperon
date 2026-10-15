@@ -1,0 +1,76 @@
+# Bring Dimitrii To Home: Luperon
+
+2D-симулятор динги (небольшой надувной лодки) на **Godot 4.7** (GDScript, рендерер
+Compatibility). Экипаж перевозится от яхты к доку и обратно, с объездом препятствий
+и буксировкой заглохших динги. Каждая "версия" игры — отдельный самодостаточный мир;
+текущая — залив **Luperón**.
+
+Это стартовый каркас: запускаемый проект + обвязка репозитория. Геймплей наполняется
+поверх него.
+
+## Что уже работает
+
+- Управляемая динги как `RigidBody2D` без гравитации; "вода" — через демпфирование
+  (`linear_damp` / `angular_damp`). Тяга вдоль носа, руль эффективен на ходу.
+- Мир залива: вода, береговая линия, док и пришвартованные лодки-препятствия
+  (статичные тела с коллизией), камера следует за игроком.
+- Заглохшая динги (`has_engine = false`) как будущая цель буксировки.
+
+**Управление:** WASD или стрелки.
+
+## Структура
+
+```
+bring-dimitrii-luperon/
+├── project.godot              # манифест проекта (input map, рендерер, окно)
+├── icon.svg
+├── scenes/
+│   ├── world/luperon.tscn     # главная сцена (мир залива)
+│   └── actors/dinghy.tscn     # динги (переиспользуемая сцена-prefab)
+├── scripts/
+│   ├── world/luperon.gd
+│   └── actors/dinghy.gd       # физическая модель лодки
+├── assets/                    # sprites / audio / fonts (пока пусто)
+├── addons/                    # сюда лягут GDExtension (напр. физика троса)
+├── export_presets.cfg         # пресеты Linux / Android
+├── .vscode/                   # launch.json / settings.json / extensions.json
+├── .github/workflows/ci.yml   # headless import + smoke-run
+└── SETUP.md                   # настройка машины и отладки (включая деплой на телефон)
+```
+
+## Как запустить
+
+1. Открыть папку проекта в **Godot 4.7** (File → Open Project, выбрать `project.godot`).
+   При первом открытии движок импортирует ассеты и создаст папку `.godot/`
+   (она в `.gitignore`).
+2. Нажать **F5** — запустится `scenes/world/luperon.tscn`.
+
+Отладка из VS Code и деплой на Android-телефон описаны в **SETUP.md** (конфиг
+`.vscode/launch.json` уже в репозитории; поправьте только путь к `godot.exe`
+в `.vscode/settings.json`).
+
+## Инициализация git
+
+```bash
+git init
+git add .
+git commit -m "Initial skeleton: Godot 4.7 dinghy simulator"
+```
+
+`.gitattributes` держит текстовые файлы (включая `.tscn`) в LF — на Windows
+дополнительно: `git config --global core.autocrlf input`.
+
+## Ближайшие шаги
+
+1. **Прототип буксировки** (главный технический риск): `DampedSpringJoint2D` от
+   `Dinghy/TowPoint` к `DinghyToTow`; при недостаточной устойчивости — переход на
+   GDExtension Rapier/Box2D с настоящим `RopeJoint2D`. При подключении нативного
+   расширения в Android-пресете включить `Use Gradle Build`.
+2. Модель воды и столкновений (сопротивление, инерция, мягкие удары о причал).
+3. Цель уровня: доставка/буксировка к нужной яхте.
+
+## CI
+
+`ci.yml` на каждый push/PR импортирует проект и запускает главную сцену headless,
+падая при ошибках скриптов/парсинга. Экспортных шаблонов не требует. Упаковка
+сборок (desktop/Android) — закомментированный раздел в том же файле.

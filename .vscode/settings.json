@@ -1,0 +1,12 @@
+{
+	// Путь к редактору Godot 4.7. Поменяйте под свою машину, если Godot лежит
+	// не здесь (SETUP.md рекомендует C:\Tools\Godot\godot.exe).
+	"godotTools.editorPath.godot4": "c:\\Users\\zum\\Downloads\\Godot\\godot_4.7.2\\godot.exe",
+
+	// Табы в GDScript — стандарт стиля Godot.
+	"[gdscript]": {
+		"editor.insertSpaces": false
+	},
+	"files.encoding": "utf8",
+	"files.eol": "\n"
+}

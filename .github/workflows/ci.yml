@@ -1,0 +1,62 @@
+name: CI
+
+# Основной гейт: проект импортируется и запускается headless без ошибок
+# скриптов/парсинга. Экспортных шаблонов и Android SDK не требует — поэтому
+# стабилен "с первого прохода". Упаковка в сборки — отдельный шаг на будущее
+# (см. раздел внизу файла).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  validate:
+    name: Import and smoke-run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Godot 4.7
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Import project (headless)
+        run: godot --headless --path . --import
+
+      - name: Smoke-run main scene (headless, ~3s)
+        run: godot --headless --path . --quit-after 180 2>&1 | tee run.log
+
+      - name: Fail on script/parse errors
+        run: |
+          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script" run.log; then
+            echo "::error::Godot reported script/parse errors"
+            exit 1
+          fi
+          echo "No script/parse errors."
+
+# ----------------------------------------------------------------------------
+# На будущее: упаковка сборок.
+#
+# Desktop-экспорт включается добавлением job, который использует
+# setup-godot с include-templates: true и коммитнутый пресет из
+# export_presets.cfg (имя пресета = значение поля name), например:
+#
+#   - uses: chickensoft-games/setup-godot@v2
+#     with: { version: 4.7.2, include-templates: true }
+#   - run: godot --headless --path . --import
+#   - run: |
+#       mkdir -p build/linux
+#       godot --headless --path . --export-release "Linux" build/linux/game.x86_64
+#   - uses: actions/upload-artifact@v4
+#     with: { name: linux-build, path: build/linux }
+#
+# Android-экспорт дополнительно требует установки OpenJDK 17 и Android SDK
+# (platform android-35, build-tools 35.0.1, platform-tools) в раннере и
+# настройки путей/keystore. См. SETUP.md, раздел 4. Запускать его разумно
+# только по тегам релиза (if: startsWith(github.ref, 'refs/tags/v')).
