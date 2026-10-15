@@ -30,5 +30,5 @@
 - Документация: `README.md`, `SETUP.md`, `docs/` (CONTEXT, ARCHITECTURE,
   TODO, CHANGELOG).
 
-[Unreleased]: https://github.com/<owner>/bring-dimitrii-luperon/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/<owner>/bring-dimitrii-luperon/releases/tag/v0.1.0
+[Unreleased]: https://github.com/imchrm/bring-dimitrii-luperon/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/imchrm/bring-dimitrii-luperon/releases/tag/v0.1.0
