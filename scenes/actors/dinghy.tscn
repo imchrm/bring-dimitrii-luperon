@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/actors/dinghy.gd" id="1_dinghy"]
+[ext_resource type="Script" path="res://scripts/effects/wake_trail.gd" id="2_wake"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_hull"]
 size = Vector2(64, 28)
@@ -11,6 +12,11 @@ gravity_scale = 0.0
 linear_damp_mode = 1
 angular_damp = 6.0
 script = ExtResource("1_dinghy")
+
+[node name="WakeTrail" type="Node2D" parent="."]
+z_as_relative = false
+z_index = -5
+script = ExtResource("2_wake")
 
 [node name="Hull" type="Polygon2D" parent="."]
 color = Color(0.18, 0.2, 0.24, 1)
