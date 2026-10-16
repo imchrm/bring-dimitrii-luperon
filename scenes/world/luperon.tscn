@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/luperon.gd" id="1_lup"]
 [ext_resource type="PackedScene" path="res://scenes/actors/dinghy.tscn" id="2_dinghy"]
+[ext_resource type="Script" path="res://scripts/world/follow_camera.gd" id="3_cam"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dock"]
 size = Vector2(80, 260)
@@ -62,7 +63,9 @@ shape = SubResource("RectangleShape2D_boat")
 position = Vector2(0, 200)
 
 [node name="FollowCamera" type="Camera2D" parent="Dinghy"]
-position_smoothing_enabled = true
+ignore_rotation = false
+process_callback = 0
+script = ExtResource("3_cam")
 
 [node name="DinghyToTow" parent="." instance=ExtResource("2_dinghy")]
 modulate = Color(0.95, 0.55, 0.3, 1)
@@ -75,6 +78,7 @@ has_engine = false
 [node name="Hint" type="Label" parent="HUD"]
 offset_left = 16.0
 offset_top = 12.0
-offset_right = 520.0
-offset_bottom = 40.0
+offset_right = 704.0
+offset_bottom = 80.0
+autowrap_mode = 3
 text = "WASD / стрелки — управление динги. Оранжевая лодка без мотора — будущая цель буксировки."

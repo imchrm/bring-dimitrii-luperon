@@ -20,6 +20,7 @@ scenes/
   actors/dinghy.tscn       # динги — переиспользуемый prefab
 scripts/
   world/luperon.gd
+  world/follow_camera.gd   # камера по курсу лодки с инерцией
   actors/dinghy.gd         # физическая модель лодки
   effects/wake_trail.gd    # след за лодкой (визуальный компонент)
 assets/                    # sprites / audio / fonts
@@ -42,7 +43,7 @@ Luperon (Node2D)                  [scripts/world/luperon.gd]
 ├── Dock (StaticBody2D)           # док (препятствие/цель)
 ├── MooredBoatA/B (StaticBody2D)  # пришвартованные лодки-препятствия
 ├── Dinghy (instance dinghy.tscn) # управляемая игроком
-│   └── FollowCamera (Camera2D)
+│   └── FollowCamera (Camera2D)   [scripts/world/follow_camera.gd]
 ├── DinghyToTow (instance dinghy.tscn, has_engine=false) # цель буксировки
 └── HUD (CanvasLayer)
 ```
@@ -149,6 +150,28 @@ Dinghy (RigidBody2D)              [scripts/actors/dinghy.gd]
   десятки процентов.
 - Рисуется одним узлом в `_draw()` (без узла/Tween на метку) — дёшево для
   мобильных.
+
+## Экран и камера
+
+Ориентация — **портретная**: вьюпорт 720x1280 (`display/window/size`),
+`handheld/orientation = portrait`. На десктопе окно уменьшено до 450x800
+(`window_*_override`) — помещается на экран 1080p, логическое разрешение
+то же (stretch `canvas_items`, aspect `expand`).
+
+Камера `FollowCamera` (`class_name FollowCamera`, дочерний узел динги игрока,
+`top_level`) держит лодку **носом вверх**: поворот вида =
+курс + PI/2 (`FollowCamera.view_rotation_for_heading`). Поворот следует за
+курсом с запаздыванием первого порядка (`rotation_lag`, по умолчанию 0.15 с,
+`FollowCamera.smooth_angle` — экспоненциальное сглаживание по кратчайшей
+дуге, не зависит от частоты кадров). В установившемся повороте с угловой
+скоростью omega камера отстаёт на omega * rotation_lag: при полном руле
+(~91 град/с) это ~14 град — камера "немного не поспевает" и догоняет курс
+после поворота. Центр вида смещён вперёд по курсу на `look_ahead` (280 px):
+лодка в нижней части экрана, впереди видно больше воды. Обновление — в шаге
+физики (`process_callback = Physics`), как и движение тела.
+
+Управление остаётся относительно лодки (руль влево/вправо), поэтому с
+камерой "нос вверх" оно совпадает с экраном.
 
 ## Порядок отрисовки (z_index)
 
