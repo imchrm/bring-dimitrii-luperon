@@ -32,13 +32,16 @@ jobs:
       - name: Smoke-run main scene (headless, ~3s)
         run: godot --headless --path . --quit-after 180 2>&1 | tee run.log
 
-      - name: Fail on script/parse errors
+      # ERROR: ловит и ошибки движка (битые ссылки на ресурсы в .tscn и т.п.).
+      # Предупреждения типизации из project.godot [debug] приходят сюда как
+      # "Parse Error ... (Warning treated as error.)".
+      - name: Fail on script/parse/engine errors
         run: |
-          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script" run.log; then
-            echo "::error::Godot reported script/parse errors"
+          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|ERROR:" run.log; then
+            echo "::error::Godot reported errors"
             exit 1
           fi
-          echo "No script/parse errors."
+          echo "No script/parse/engine errors."
 
 # ----------------------------------------------------------------------------
 # На будущее: упаковка сборок.
@@ -57,6 +60,7 @@ jobs:
 #     with: { name: linux-build, path: build/linux }
 #
 # Android-экспорт дополнительно требует установки OpenJDK 17 и Android SDK
-# (platform android-35, build-tools 35.0.1, platform-tools) в раннере и
+# (platform android-35, build-tools 35.0.1, platform-tools, NDK 28.1.13356709,
+# CMake 3.10.2.4988404 — в 4.7 NDK/CMake обязательны для экспорта) в раннере и
 # настройки путей/keystore. См. SETUP.md, раздел 4. Запускать его разумно
 # только по тегам релиза (if: startsWith(github.ref, 'refs/tags/v')).
