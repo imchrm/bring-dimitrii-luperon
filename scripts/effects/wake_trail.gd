@@ -12,10 +12,16 @@ extends Node2D
 ## повёрнут по НОСУ корпуса, а не по траектории: в повороте видно, насколько
 ## корпус развёрнут относительно направления движения (снос боком).
 ##
-## Метка уменьшается и бледнеет по двум причинам сразу — возраст (lifetime)
-## и удалённость от лодки вдоль следа (max_length); берётся большая из двух
-## долей. Так след никогда не длиннее max_length, а на малом ходу короче,
-## и метки исчезают плавно, без обрезки "на полуслове".
+## Как настоящий кильватерный след, метка не сжимается, а РАСХОДИТСЯ и
+## растворяется: ширина поперёк корпуса растёт до spread раз, длина вдоль
+## корпуса не меняется, гаснет только альфа. Доля "жизни" (fade) — худшая из
+## двух: по возрасту (lifetime) и по удалённости от лодки вдоль следа
+## (max_length). Так след никогда не длиннее max_length и не "втягивается"
+## в корму, когда лодка встала, а тает на месте.
+##
+## Сила метки (strength) фиксируется при рождении по скорости: полная при
+## full_wake_speed, слабее на малом ходу (меньше альфа и размер). Тормозящая
+## лодка оставляет всё более слабые метки — без яркого сгустка у кормы.
 
 ## Длина следа вдоль траектории, px. По умолчанию — 3 длины корпуса динги (64).
 @export_range(0.0, 1000.0, 1.0) var max_length: float = 192.0
@@ -27,22 +33,31 @@ extends Node2D
 @export_range(0.0, 100.0, 0.5) var min_speed: float = 8.0
 ## Точка появления меток в локальных координатах родителя (корма).
 @export var emit_offset: Vector2 = Vector2(-30.0, 0.0)
-## Размер свежей метки, px: x — вдоль корпуса, y — поперёк.
+## Размер свежей метки на полном ходу, px: x — вдоль корпуса, y — поперёк.
 @export var mark_size: Vector2 = Vector2(12.0, 5.0)
-## Цвет свежей метки; альфа уменьшается вместе с размером.
+## Цвет свежей метки на полном ходу; альфа гаснет с fade и strength.
 @export var mark_color: Color = Color(0.85, 0.95, 1.0, 0.65)
+## Во сколько раз ширина метки (y) вырастает к концу жизни.
+@export_range(1.0, 10.0, 0.1) var spread: float = 2.5
+## Скорость, при которой метка рождается с полной силой, px/s.
+@export_range(1.0, 1000.0, 1.0) var full_wake_speed: float = 200.0
+## Масштаб размера метки при нулевой силе (на малом ходу); 1 — не зависит.
+@export_range(0.0, 1.0, 0.05) var min_size_scale: float = 0.5
 
 
 ## Одна метка следа.
 class Mark:
 	var position: Vector2
 	var rotation: float
+	## Сила при рождении, [0, 1]; зависит от скорости лодки.
+	var strength: float
 	var age: float = 0.0
 	var fade: float = 1.0
 
-	func _init(at: Vector2, heading: float) -> void:
+	func _init(at: Vector2, heading: float, wake_strength: float) -> void:
 		position = at
 		rotation = heading
+		strength = wake_strength
 
 
 var _source: Node2D
@@ -79,7 +94,8 @@ func _process(delta: float) -> void:
 		_spawn_timer = 0.0
 		_last_spawn_check_point = _head
 		if speed >= min_speed:
-			_marks.append(Mark.new(_head, _source.global_rotation))
+			var strength: float = WakeTrail.strength_for_speed(speed, full_wake_speed)
+			_marks.append(Mark.new(_head, _source.global_rotation, strength))
 
 	_update_marks(_head, delta)
 	queue_redraw()
@@ -89,8 +105,9 @@ func _draw() -> void:
 	var half: Vector2 = mark_size * 0.5
 	for mark: Mark in _marks:
 		var color: Color = mark_color
-		color.a *= mark.fade
-		draw_set_transform(mark.position, mark.rotation, Vector2(mark.fade, mark.fade))
+		color.a *= mark.fade * mark.strength
+		var scale_xy: Vector2 = WakeTrail.mark_scale(mark.fade, mark.strength, spread, min_size_scale)
+		draw_set_transform(mark.position, mark.rotation, scale_xy)
 		draw_rect(Rect2(-half, mark_size), color)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -126,3 +143,19 @@ static func fade_factor(age: float, max_age: float, distance: float, length_limi
 	if max_age <= 0.0 or length_limit <= 0.0:
 		return 0.0
 	return clampf(1.0 - maxf(age / max_age, distance / length_limit), 0.0, 1.0)
+
+
+## Сила метки по скорости при рождении, [0, 1]: линейно до full_speed.
+static func strength_for_speed(speed: float, full_speed: float) -> float:
+	if full_speed <= 0.0:
+		return 1.0
+	return clampf(speed / full_speed, 0.0, 1.0)
+
+
+## Масштаб метки (x — вдоль корпуса, y — поперёк). Базовый масштаб растёт
+## с силой от min_scale до 1; ширина дополнительно расходится от 1 до
+## spread_max по мере угасания (fade: 1 -> 0). Длина от fade не зависит.
+static func mark_scale(fade: float, strength: float, spread_max: float, min_scale: float) -> Vector2:
+	var base: float = lerpf(min_scale, 1.0, strength)
+	var widen: float = lerpf(spread_max, 1.0, fade)
+	return Vector2(base, base * widen)
