@@ -8,7 +8,7 @@ size = Vector2(64, 28)
 [node name="Dinghy" type="RigidBody2D"]
 mass = 2.0
 gravity_scale = 0.0
-linear_damp = 2.0
+linear_damp_mode = 1
 angular_damp = 6.0
 script = ExtResource("1_dinghy")
 
@@ -25,3 +25,6 @@ shape = SubResource("RectangleShape2D_hull")
 
 [node name="TowPoint" type="Marker2D" parent="."]
 position = Vector2(-32, 0)
+
+[node name="BowPoint" type="Marker2D" parent="."]
+position = Vector2(34, 0)
