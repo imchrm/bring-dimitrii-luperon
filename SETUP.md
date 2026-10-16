@@ -283,6 +283,12 @@ godot --headless --export-debug "Android" build/game.apk
   переподключить кабель.
 - **Export templates версии не той** — шаблоны обязаны совпадать с версией
   редактора (4.7.x), иначе экспорт не пройдёт.
+- **`Identifier not found: <ИмяКласса>` после `git pull`** — новый
+  `class_name` ещё не попал в кеш глобальных классов редактора
+  (`.godot/global_script_class_cache.cfg`). Кеш обновляется, когда редактор
+  пересканирует файлы: переключиться в окно Godot (или Project -> Reload
+  Current Project) и только потом жать F5 в VS Code. Радикально — закрыть
+  редактор и выполнить `godot --headless --path . --import`.
 - **Git метит сцены как изменённые на ровном месте** — `git config --global
   core.autocrlf input` и сгенерированный `.gitattributes`.
 - **На будущее (плагины/GDExtension)** — когда подключите нативное расширение

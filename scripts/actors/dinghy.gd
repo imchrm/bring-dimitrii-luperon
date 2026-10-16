@@ -50,7 +50,9 @@ func _physics_process(_delta: float) -> void:
 
 ## Линейное сопротивление воды, раздельно по осям корпуса.
 func _apply_water_drag() -> void:
-	var drag_accel: Vector2 = Dinghy.water_drag_acceleration(
+	# Статический метод своего класса вызывается без префикса "Dinghy.":
+	# так скрипт не зависит от кеша глобальных классов редактора.
+	var drag_accel: Vector2 = water_drag_acceleration(
 		linear_velocity, rotation, forward_drag, lateral_drag)
 	apply_central_force(drag_accel * mass)
 
