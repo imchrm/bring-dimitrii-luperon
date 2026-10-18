@@ -22,6 +22,7 @@ scripts/
   world/luperon.gd
   world/follow_camera.gd   # камера по курсу лодки с инерцией
   actors/dinghy.gd         # физическая модель лодки
+  actors/tow_rope.gd       # буксирный трос (физика + отрисовка)
   effects/wake_trail.gd    # след за лодкой (визуальный компонент)
 assets/                    # sprites / audio / fonts
 addons/                    # GDExtension и плагины (напр. физика троса)
@@ -44,7 +45,9 @@ Luperon (Node2D)                  [scripts/world/luperon.gd]
 ├── MooredBoatA/B (StaticBody2D)  # пришвартованные лодки-препятствия
 ├── Dinghy (instance dinghy.tscn) # управляемая игроком
 │   └── FollowCamera (Camera2D)   [scripts/world/follow_camera.gd]
-├── DinghyToTow (instance dinghy.tscn, has_engine=false) # цель буксировки
+├── DinghyToTow (instance dinghy.tscn, has_engine=false) # на буксире
+├── TowRope (Line2D)              [scripts/actors/tow_rope.gd]
+│                                 # Dinghy/TowPoint -> DinghyToTow/BowPoint
 └── HUD (CanvasLayer)
 ```
 
@@ -183,20 +186,56 @@ Dinghy (RigidBody2D)              [scripts/actors/dinghy.gd]
 Действия (`project.godot [input]`): `thrust` (W / Up), `reverse` (S / Down),
 `steer_left` (A / Left), `steer_right` (D / Right).
 
-## Буксировка троса (план, главный риск)
+## Буксирный трос (TowRope)
 
-Не реализовано в каркасе — следующий шаг. План:
+Свой трос на GDScript (`class_name TowRope`, `scripts/actors/tow_rope.gd`),
+а не `DampedSpringJoint2D`: встроенный джойнт — пружина, он работает и на
+сжатие и расталкивал бы сблизившиеся лодки. Трос же только тянет.
 
-1. Базовый вариант: `DampedSpringJoint2D` между `Dinghy/TowPoint` и
-   `DinghyToTow`. Параметры (length / rest_length / stiffness / damping) —
-   в `@export`, подбор через Remote.
-2. Если натяжение/устойчивость не устроят (риск "взрыва" физики на поворотах
-   из-за связки инерция + сопротивление + джойнт) — переход на GDExtension
-   **Rapier** (`RapierRopeJoint2D`) или **Box2D** через `addons/`.
-3. При подключении нативного расширения: в Android-пресете включить
-   **Use Gradle Build** и установить Android Build Template, иначе нативные
-   библиотеки не попадут в APK. Расширение должно содержать варианты под все
-   целевые архитектуры (arm64-v8a для телефона, x86_64 для MuMu-эмулятора).
+- Точки крепления — экспортируемые ссылки на узлы `tug_point` /
+  `towed_point` (`Dinghy/TowPoint` и `DinghyToTow/BowPoint`); тело — ближайший
+  предок `RigidBody2D` (`TowRope.find_body`).
+- В `_physics_process`: растяжение = расстояние между точками - `length`.
+  При слабине силы нет. При натяжении сила
+  `stiffness * растяжение + damping * скорость_растяжения`, обрезанная в
+  `[0, max_force]` (`TowRope.rope_force`): трос никогда не толкает, даже
+  при быстром сближении. Скорость растяжения — по скоростям самих точек с
+  учётом вращения (`TowRope.point_velocity`, v + omega x r).
+- Сила приложена к обоим телам в точках крепления (`apply_force` со
+  смещением), поэтому даёт момент: прицеп встаёт носом по тросу, а
+  благодаря поперечному сопротивлению воды идёт в кильватере.
+- Отрисовка — тот же узел (`Line2D`, `top_level`): натянутый трос прямой,
+  провисший — парабола с глубиной `h = sqrt(3 * chord * slack / 8)`
+  (`TowRope.sag_depth`, `TowRope.rope_polyline`). `z_index = -4`: над следом,
+  под лодками.
+- `attached = false` отключает и физику, и отрисовку — заготовка под
+  механику зацепа/отцепа (шаг 2).
+- `current_force` / `current_stretch` — показания последнего шага физики
+  для отладки и тестов.
+
+Устойчивость. Масса динги 2 кг, момент инерции ~813 (прямоугольник
+64x28). Худший случай — сила поперёк корпусов на плече ~32 px: приведённая
+масса пары точек `m_red ~ 0.28`. Явная схема устойчива, пока
+`stiffness * dt^2 / m_red` и `damping * dt / m_red` заметно меньше 1..2;
+при 60 Гц и значениях по умолчанию (300 и 20) это ~0.3 и ~1.2.
+Критическое демпфирование вдоль оси (~35) здесь не взято именно из-за
+поперечного случая (~2.1 — на грани).
+
+Проверено headless (буксир на полном газу, `length = 100`):
+
+| Сценарий | Результат |
+|---|---|
+| Прямая буксировка | 131 px/s обе лодки, растяжение 1.8 px, 550 Н |
+| Полный руль 3 с | прицеп к тросу ~7.5 град, пик 592 Н |
+| Задний ход | трос провисает, сила ровно 0 |
+| Рывок из провиса | пик 4364 Н (< 5000), растяжение 4.6 px |
+| Циркуляция 30 с без препятствий | пики в начале и конце равны (энергия не копится) |
+| Спящий прицеп | трос будит его и тянет |
+
+Переход на GDExtension Rapier/Box2D не понадобился. Если всё же
+понадобится: в Android-пресете включить **Use Gradle Build** и
+установить Android Build Template, а расширение должно содержать варианты
+под arm64-v8a и x86_64.
 
 ## Ландшафт (план)
 
