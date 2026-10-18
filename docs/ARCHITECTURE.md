@@ -45,7 +45,7 @@ Luperon (Node2D)                  [scripts/world/luperon.gd]
 ├── MooredBoatA/B (StaticBody2D)  # пришвартованные лодки-препятствия
 ├── Dinghy (instance dinghy.tscn) # управляемая игроком
 │   └── FollowCamera (Camera2D)   [scripts/world/follow_camera.gd]
-├── DinghyToTow (instance dinghy.tscn, has_engine=false) # на буксире
+├── DinghyToTow (instance dinghy.tscn, has_engine=false) # цель буксировки
 ├── TowRope (Line2D)              [scripts/actors/tow_rope.gd]
 │                                 # Dinghy/TowPoint -> DinghyToTow/BowPoint
 └── HUD (CanvasLayer)
@@ -184,7 +184,8 @@ Dinghy (RigidBody2D)              [scripts/actors/dinghy.gd]
 ## Карта ввода
 
 Действия (`project.godot [input]`): `thrust` (W / Up), `reverse` (S / Down),
-`steer_left` (A / Left), `steer_right` (D / Right).
+`steer_left` (A / Left), `steer_right` (D / Right), `tow` (Space / E —
+зацепить / отдать трос).
 
 ## Буксирный трос (TowRope)
 
@@ -192,9 +193,10 @@ Dinghy (RigidBody2D)              [scripts/actors/dinghy.gd]
 а не `DampedSpringJoint2D`: встроенный джойнт — пружина, он работает и на
 сжатие и расталкивал бы сблизившиеся лодки. Трос же только тянет.
 
-- Точки крепления — экспортируемые ссылки на узлы `tug_point` /
-  `towed_point` (`Dinghy/TowPoint` и `DinghyToTow/BowPoint`); тело — ближайший
-  предок `RigidBody2D` (`TowRope.find_body`).
+- Трос принадлежит буксиру: `tug_point` — `Dinghy/TowPoint` (корма игрока),
+  постоянно. `towed_point` назначается при зацепе (или задаётся в сцене —
+  тогда трос подцеплен с начала). Тело — ближайший предок `RigidBody2D`
+  (`TowRope.find_body`).
 - В `_physics_process`: растяжение = расстояние между точками - `length`.
   При слабине силы нет. При натяжении сила
   `stiffness * растяжение + damping * скорость_растяжения`, обрезанная в
@@ -208,8 +210,18 @@ Dinghy (RigidBody2D)              [scripts/actors/dinghy.gd]
   провисший — парабола с глубиной `h = sqrt(3 * chord * slack / 8)`
   (`TowRope.sag_depth`, `TowRope.rope_polyline`). `z_index = -4`: над следом,
   под лодками.
-- `attached = false` отключает и физику, и отрисовку — заготовка под
-  механику зацепа/отцепа (шаг 2).
+- **Зацеп и отцеп** — действие `hook_action` (`tow`: Space / E), опрос
+  `Input.is_action_just_pressed` в шаге физики (удержание клавиши
+  переключает трос один раз). Кандидаты — узлы группы `hook_group`
+  (`tow_points`; в prefab динги это `BowPoint`), кроме точек на самом
+  буксире. Если трос не подцеплен и ближайший кандидат ближе `hook_radius`
+  (48 px) к корме — нажатие цепляет (`hook()`), если подцеплен — отдаёт
+  (`release()`). Пока кандидат в зоне, вокруг него пульсирует кольцо
+  (`_draw()` того же узла, `hint_color`). Длина троса при зацепе всегда
+  `length`: у кормы трос провисает и натягивается с небольшим рывком.
+- Сигналы `hooked(target: RigidBody2D)` / `released(target: RigidBody2D)` —
+  для цели уровня (доставка к яхте). Запросы: `is_attached()`,
+  `get_towed_body()`, `find_hook_candidate()`.
 - `current_force` / `current_stretch` — показания последнего шага физики
   для отладки и тестов.
 

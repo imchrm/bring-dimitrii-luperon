@@ -1,6 +1,17 @@
 class_name TowRope
 extends Line2D
-## TowRope — буксирный трос между двумя твёрдыми телами.
+## TowRope — буксирный трос буксира: зацеп, отцеп и физика троса.
+##
+## Трос принадлежит буксиру: один конец всегда на tug_point (корма буксира),
+## второй цепляется к точке крепления другой лодки (towed_point, её нос).
+##
+## Зацеп и отцеп — действие hook_action (по умолчанию "tow": Space / E).
+## Кандидаты на зацеп — узлы группы hook_group ("tow_points"; в prefab динги
+## это BowPoint), кроме точек на самом буксире. Если трос не подцеплен и
+## ближайший кандидат ближе hook_radius к tug_point, нажатие цепляет трос
+## к нему; если подцеплен — то же нажатие отдаёт трос. Пока кандидат в
+## зоне, вокруг него пульсирует кольцо-подсказка. Сигналы hooked / released
+## сообщают о зацепе и отцепе (пригодятся для цели уровня).
 ##
 ## Трос, а не пружина: тянет только при натяжении (расстояние между точками
 ## крепления больше length) и никогда не толкает. Пока трос провис, силы нет.
@@ -22,17 +33,27 @@ extends Line2D
 ##
 ## Узел же рисует трос (Line2D в мировых координатах, top_level): натянутый —
 ## прямой, провисший — дугой, глубина которой соответствует слабине.
-##
-## Точки крепления — узлы Node2D (Marker2D), дочерние к телам; тело —
-## ближайший предок RigidBody2D. attached = false отключает трос (физику и
-## отрисовку) — для будущей механики зацепа/отцепа.
+
+## Трос подцеплен к towed_point.
+signal hooked(target: RigidBody2D)
+## Трос отдан; target — лодка, которая была на буксире.
+signal released(target: RigidBody2D)
 
 ## Точка крепления на буксире (корма буксира).
 @export var tug_point: Node2D
-## Точка крепления на буксируемой лодке (нос).
+## Точка крепления на буксируемой лодке (нос). Если задана в сцене, трос
+## подцеплен к ней с начала; иначе назначается при зацепе.
 @export var towed_point: Node2D
-## Трос подключён: тянет и рисуется.
-@export var attached: bool = true
+
+@export_group("Hook")
+## Действие ввода для зацепа / отцепа.
+@export var hook_action: StringName = &"tow"
+## Группа узлов — точек, за которые можно зацепить трос.
+@export var hook_group: StringName = &"tow_points"
+## Наибольшее расстояние от tug_point до точки зацепа, px.
+@export_range(1.0, 500.0, 1.0) var hook_radius: float = 48.0
+## Цвет кольца-подсказки вокруг точки, доступной для зацепа.
+@export var hint_color: Color = Color(1.0, 0.9, 0.4, 0.9)
 
 @export_group("Physics")
 ## Длина троса без натяжения, px. ~1.5 длины корпуса динги (64).
@@ -50,6 +71,9 @@ extends Line2D
 
 var _tug_body: RigidBody2D
 var _towed_body: RigidBody2D
+## Точка, доступная для зацепа прямо сейчас (null — нет кандидата в зоне).
+var _hook_candidate: Node2D
+var _hint_time: float = 0.0
 ## Сила натяжения на последнем шаге физики, Н. Только для чтения (отладка).
 var current_force: float = 0.0
 ## Растяжение на последнем шаге физики, px (отрицательное — слабина).
@@ -60,18 +84,85 @@ func _ready() -> void:
 	top_level = true
 	global_transform = Transform2D.IDENTITY
 	_tug_body = TowRope.find_body(tug_point)
-	_towed_body = TowRope.find_body(towed_point)
-	if _tug_body == null or _towed_body == null:
-		push_error("TowRope: tug_point and towed_point must be children of RigidBody2D")
+	if _tug_body == null:
+		push_error("TowRope: tug_point must be a child of RigidBody2D")
 		set_physics_process(false)
 		set_process(false)
-		visible = false
+		return
+	var initial: Node2D = towed_point
+	towed_point = null
+	if initial != null:
+		hook(initial)
+
+
+## Трос подцеплен.
+func is_attached() -> bool:
+	return towed_point != null
+
+
+## Лодка на буксире (null, если трос не подцеплен).
+func get_towed_body() -> RigidBody2D:
+	return _towed_body
+
+
+## Цепляет трос к точке point. false — если point не на твёрдом теле или
+## это точка на самом буксире. Предыдущий зацеп при этом отдаётся.
+func hook(point: Node2D) -> bool:
+	var body: RigidBody2D = TowRope.find_body(point)
+	if body == null or body == _tug_body:
+		return false
+	if is_attached():
+		release()
+	towed_point = point
+	_towed_body = body
+	hooked.emit(body)
+	return true
+
+
+## Отдаёт трос. Ничего не делает, если трос не подцеплен.
+func release() -> void:
+	if not is_attached():
+		return
+	var body: RigidBody2D = _towed_body
+	towed_point = null
+	_towed_body = null
+	current_force = 0.0
+	current_stretch = 0.0
+	released.emit(body)
+
+
+## Ближайшая точка группы hook_group в радиусе hook_radius от tug_point,
+## не принадлежащая буксиру; null — если такой нет.
+func find_hook_candidate() -> Node2D:
+	var origin: Vector2 = tug_point.global_position
+	var best: Node2D = null
+	var best_distance: float = hook_radius
+	for node: Node in get_tree().get_nodes_in_group(hook_group):
+		var point: Node2D = node as Node2D
+		if point == null or TowRope.find_body(point) == _tug_body:
+			continue
+		var distance: float = origin.distance_to(point.global_position)
+		if distance <= best_distance:
+			best = point
+			best_distance = distance
+	return best
 
 
 func _physics_process(_delta: float) -> void:
+	if Input.is_action_just_pressed(hook_action):
+		if is_attached():
+			release()
+		else:
+			var candidate: Node2D = find_hook_candidate()
+			if candidate != null:
+				hook(candidate)
+	_apply_rope_force()
+
+
+func _apply_rope_force() -> void:
 	current_force = 0.0
 	current_stretch = 0.0
-	if not attached:
+	if not is_attached():
 		return
 	var a: Vector2 = tug_point.global_position
 	var b: Vector2 = towed_point.global_position
@@ -95,12 +186,27 @@ func _physics_process(_delta: float) -> void:
 	_towed_body.apply_force(-pull, b - _towed_body.global_position)
 
 
-func _process(_delta: float) -> void:
-	visible = attached
-	if not attached:
+func _process(delta: float) -> void:
+	if is_attached():
+		_hook_candidate = null
+		points = TowRope.rope_polyline(
+			tug_point.global_position, towed_point.global_position, length, sag_segments)
+	else:
+		_hook_candidate = find_hook_candidate()
+		points = PackedVector2Array()
+	_hint_time += delta
+	queue_redraw()
+
+
+## Кольцо-подсказка вокруг точки, доступной для зацепа. Рисуется поверх
+## линии троса (Line2D рисует свои points сам).
+func _draw() -> void:
+	if _hook_candidate == null:
 		return
-	points = TowRope.rope_polyline(
-		tug_point.global_position, towed_point.global_position, length, sag_segments)
+	var pulse: float = 0.5 + 0.5 * sin(_hint_time * TAU * 1.5)
+	var color: Color = hint_color
+	color.a *= lerpf(0.4, 1.0, pulse)
+	draw_arc(_hook_candidate.global_position, lerpf(9.0, 13.0, pulse), 0.0, TAU, 24, color, 2.0)
 
 
 ## Ближайший предок-RigidBody2D узла (или null).

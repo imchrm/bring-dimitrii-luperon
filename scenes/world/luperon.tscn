@@ -70,17 +70,17 @@ script = ExtResource("3_cam")
 
 [node name="DinghyToTow" parent="." instance=ExtResource("2_dinghy")]
 modulate = Color(0.95, 0.55, 0.3, 1)
-position = Vector2(-162, 200)
+position = Vector2(260, 240)
+rotation = 3.14159
 has_engine = false
 
-[node name="TowRope" type="Line2D" parent="." node_paths=PackedStringArray("tug_point", "towed_point")]
+[node name="TowRope" type="Line2D" parent="." node_paths=PackedStringArray("tug_point")]
 z_as_relative = false
 z_index = -4
 width = 2.0
 default_color = Color(0.92, 0.86, 0.68, 1)
 script = ExtResource("4_rope")
 tug_point = NodePath("../Dinghy/TowPoint")
-towed_point = NodePath("../DinghyToTow/BowPoint")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
@@ -90,4 +90,4 @@ offset_top = 12.0
 offset_right = 704.0
 offset_bottom = 80.0
 autowrap_mode = 3
-text = "WASD / стрелки — управление динги. Оранжевая лодка без мотора — на буксире."
+text = "WASD / стрелки — управление. Space / E — зацепить трос (кормой к носу оранжевой лодки, когда вокруг него кольцо) / отдать трос."

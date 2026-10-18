@@ -32,5 +32,5 @@ shape = SubResource("RectangleShape2D_hull")
 [node name="TowPoint" type="Marker2D" parent="."]
 position = Vector2(-32, 0)
 
-[node name="BowPoint" type="Marker2D" parent="."]
+[node name="BowPoint" type="Marker2D" parent="." groups=["tow_points"]]
 position = Vector2(34, 0)
